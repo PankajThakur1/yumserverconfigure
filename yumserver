@@ -1,0 +1,106 @@
+#!/bin/bash
+
+# Ensure that this program is runing as root
+
+log() {
+        local m="$1"
+        local dt="$(date '+%Y-%m-%d %H:%M:%S')"
+        local pid="$$"
+        printf "%s\n" "${dt} ${pid} ${m}"
+}
+
+if [ $(id -u) != 0 ];then
+        log "ERROR:Currently you have logged in as "$(whoami)".you have need to login as root to extecute this script !"
+        exit 1
+fi
+
+# Insert Linux os Dvd into cdrom
+# Mount the cdrom on the system 
+
+cd() {
+
+mount -t iso9660 -o loop /dev/cdrom /mnt
+status="$?"
+        if [ $status == 0 ];then
+           log "INFO:Your Dvd is mounted successfully !"
+        fi
+}
+
+cd
+# To check Packages are installed on system or not 
+
+check() {
+                local pkg="$(rpm -qa vsftpd)"
+        if  [ $pkg ];then
+                echo "Package is allready install $pkg"
+        else
+                local rpm="$(rpm -ivh /mnt/Packages/vsftpd*)"
+                local service="$(/etc/init.d/vsftpd restart)"
+                                local chkconfig="$(chkconfig vsftpd on)"
+        fi
+
+                local pkg1="$(rpm -qa deltarpm)"
+        if [ $pkg1 ];then
+                echo "Package is allready install $pkg1"
+        else
+                local rpm1="$(rpm -ivh /mnt/Packages/deltarpm*)"
+        fi
+
+                local pkg2="$(rpm -qa python-deltarpm)"
+        if [ $pkg2 ];then
+                echo "Package is allready install $pkg2"
+        else
+                local rpm2="$(rpm -ivh /mnt/Packages/python-deltarpm*)"
+        fi
+
+                local pkg3="$(rpm -qa createrepo)"
+        if [ $pkg3 ];then
+                echo "Package is allready install $pkg3"
+        else
+                local rpm3="$(rpm -ivh /mnt/Packages/createrepo*)"
+        fi
+
+}
+
+check
+
+# Copy Packages from dvd 
+
+system() {
+                local copy="$(cp -var /mnt/Packages /var/ftp/pub/)"
+        if [ $? == "0" ];then
+                log "INFO:Packages has been copied successfully !"
+        fi
+
+# To Createrepo
+                local repo="$(createrepo -v /var/ftp/pub/Packages)"
+        if [ $? == "0" ];then
+                log "Message:Createrepo Completed ...."
+        fi
+
+# To Create .repo file
+
+cat > /etc/yum.repos.d/server.repo <<_EOF_
+[server]
+name=server
+baseurl=file:///var/ftp/pub/Packages
+enabled=1
+gpgcheck=0
+_EOF_
+
+                local file_="/etc/yum.repos.d/server.repo"
+        if [ -f $file_ ];then
+                log "Message:repo file has been created successfully !"
+        fi
+
+# To refresh repo
+                local yum="$(yum clean all)"
+                local yum1="$(yum list)"
+        if [ $? == "0" ];then
+                log "Message:Yum server is configure successfully !"
+                log "INFO:Thanks for using yumserver script !"
+        fi
+}
+
+system
+       
